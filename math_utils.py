@@ -196,3 +196,30 @@ def plot_results_3d(p_gt, p_icp):
     plt.legend()
     plt.tight_layout()
     plt.show()
+
+
+def skew(v):
+    return np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
+
+
+def exp_so3(w):
+    theta = np.linalg.norm(w)
+    if theta < 1e-12:
+        return np.eye(3)
+
+    k = w / theta
+    K = skew(k)
+
+    return np.eye(3) + np.sin(theta) * K + (1 - np.cos(theta)) * (K @ K)
+
+
+def exp_se3(xi):
+    rho = xi[:3].reshape(3, 1)
+    w = xi[3:]
+
+    R = exp_so3(w)
+
+    T = np.eye(4)
+    T[:3, :3] = R
+    T[:3, 3] = rho.flatten()
+    return T
