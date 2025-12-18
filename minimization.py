@@ -45,11 +45,11 @@ def kernel_huber(e, delta=1.0):
 
 
 def minimize_point_to_point_ls(
-    P, Q, correspondences, iterations=10, kernel=kernel_none, **kwargs
+    P, Q, correspondences, lms_iterations=5, kernel=kernel_none, **kwargs
 ):
     T = np.eye(4)
 
-    for it in range(iterations):
+    for it in range(lms_iterations):
         H = np.zeros((6, 6))
         g = np.zeros((6, 1))
         chi = 0.0
@@ -85,14 +85,20 @@ def minimize_point_to_point_ls(
 
 
 def minimize_point_to_plane_ls(
-    P, Q, correspondences, kernel=kernel_none, iterations=10, symmetric=True, **kwargs
+    P,
+    Q,
+    correspondences,
+    kernel=kernel_none,
+    lms_iterations=5,
+    symmetric=True,
+    **kwargs,
 ):
     T = np.eye(4)
 
     normals_P = compute_normals(P)
     normals_Q = compute_normals(Q)
 
-    for it in range(iterations):
+    for it in range(lms_iterations):
         H = np.zeros((6, 6))
         g = np.zeros((6, 1))
         chi = 0.0
@@ -140,7 +146,7 @@ def minimize_point_to_plane_ls(
 
 
 def minimize_generalized_icp_ls(
-    P, Q, correspondences, kernel=kernel_none, iterations=10, **kwargs
+    P, Q, correspondences, kernel=kernel_none, lms_iterations=5, **kwargs
 ):
     T = np.eye(4)
 
@@ -148,7 +154,7 @@ def minimize_generalized_icp_ls(
     cov_P = compute_covariances(P, tree)
     cov_Q = compute_covariances(Q, tree)
 
-    for it in range(iterations):
+    for it in range(lms_iterations):
         H = np.zeros((6, 6))
         g = np.zeros((6, 1))
         chi = 0.0
