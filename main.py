@@ -9,7 +9,7 @@ from scipy.spatial import KDTree
 from icp import frame_to_frame_icp
 from correspondence import correspondence_kdtree
 from math_utils import export_trajectories, plot_results, plot_results_3d
-from minimization import minimize_point_to_point_svd
+from minimization import minimize_point_to_point_svd, minimize_point_to_point_ls
 
 
 def main():
@@ -30,14 +30,14 @@ def main():
         scene.add_geometry(pc)
 
     # scene.show(point_size=5)
-    T = frame_to_frame_icp(
-        X,
-        correspondence_fn=correspondence_kdtree,
-        minimization_fn=minimize_point_to_point_svd,
-        iterations=20,
-    )
-    p_gt, T_gt, p_icp, T_icp = export_trajectories(ground_truth, T)
-    plot_results(p_gt, p_icp)
+    # T = frame_to_frame_icp(
+    #     X,
+    #     correspondence_fn=correspondence_kdtree,
+    #     minimization_fn=minimize_point_to_point_svd,
+    #     iterations=20,
+    # )
+    # p_gt, T_gt, p_icp, T_icp = export_trajectories(ground_truth, T)
+    # plot_results(p_gt, p_icp)
 
     T_point_ls = frame_to_frame_icp(
         X,
