@@ -223,3 +223,48 @@ def exp_se3(xi):
     T[:3, :3] = R
     T[:3, 3] = rho.flatten()
     return T
+
+
+def compute_normals(points, k=20):
+    P = points.T  # (N,3)
+    N = P.shape[0]
+
+    normals = np.zeros((N, 3))
+
+    for i in range(N):
+        d = np.linalg.norm(P - P[i], axis=1)
+        idx = np.argsort(d)[1 : k + 1]
+        neigh = P[idx].T  # (3,k)
+
+        mu = neigh.mean(axis=1, keepdims=True)
+        C = (neigh - mu) @ (neigh - mu).T
+
+        _, v = np.linalg.eigh(C)
+        n = v[:, 0]  # smallest eigenvalue
+        normals[i] = n / np.linalg.norm(n)
+
+    return normals  # (N,3)
+
+
+def compute_covariances(points, tree, k=20, eps=1e-6):
+    P = points.T  # (N,3)
+    N = P.shape[0]
+
+    covariances = []
+
+    for i in range(N):
+        # k nearest neighbors (excluding the point itself)
+        dists, idx = tree.query(P[i], k=k + 1)
+        neigh = P[idx[1:]]  # (k,3)
+
+        mu = neigh.mean(axis=0, keepdims=True)
+        X = neigh - mu
+
+        C = (X.T @ X) / k
+
+        # Regularization (prevents singular matrices)
+        C += eps * np.eye(3)
+
+        covariances.append(C)
+
+    return covariances

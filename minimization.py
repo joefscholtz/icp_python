@@ -1,5 +1,6 @@
 import numpy as np
-from math_utils import T_to_Rt, skew, exp_se3
+from scipy.spatial import KDTree
+from math_utils import T_to_Rt, skew, exp_se3, compute_normals, compute_covariances
 
 
 def minimize_point_to_point_svd(P, Q, correspondences, **kwargs):
@@ -76,6 +77,108 @@ def minimize_point_to_point_ls(
 
         dx = np.linalg.solve(H, -g)
 
+        T = exp_se3(dx.flatten()) @ T
+
+    R, t = T_to_Rt(T)
+
+    return R, t, chi
+
+
+def minimize_point_to_plane_ls(
+    P, Q, correspondences, kernel=kernel_none, iterations=10, symmetric=True, **kwargs
+):
+    T = np.eye(4)
+
+    normals_P = compute_normals(P)
+    normals_Q = compute_normals(Q)
+
+    for it in range(iterations):
+        H = np.zeros((6, 6))
+        g = np.zeros((6, 1))
+        chi = 0.0
+
+        R = T[:3, :3]
+        t = T[:3, 3:4]
+
+        for i, j in correspondences:
+            p = P[:, [i]]
+            q = Q[:, [j]]
+
+            n_q = normals_Q[j].reshape(1, 3)
+
+            if symmetric:
+                n_p = normals_P[i].reshape(1, 3)
+                n = n_q + (R @ n_p.T).T
+                n /= np.linalg.norm(n)
+            else:
+                n = n_q
+
+            # scalar residual
+            r = n @ (R @ p + t - q)  # (1,1)
+
+            w = kernel(abs(float(r)))
+
+            # Jacobian (1×6)
+            J = np.zeros((1, 6))
+            J[:, :3] = n
+            J[:, 3:] = n @ (-R @ skew(p.flatten()))
+
+            H += w * (J.T @ J)
+            g += w * (J.T * r)
+            chi += float(r * r)
+
+        H += 1e-6 * np.eye(6)
+
+        dx = np.linalg.solve(H, -g)
+
+        # SE(3) update
+        T = exp_se3(dx.flatten()) @ T
+
+    R, t = T_to_Rt(T)
+
+    return R, t, chi
+
+
+def minimize_generalized_icp_ls(
+    P, Q, correspondences, kernel=kernel_none, iterations=10, **kwargs
+):
+    T = np.eye(4)
+
+    tree = KDTree(Q.T)
+    cov_P = compute_covariances(P, tree)
+    cov_Q = compute_covariances(Q, tree)
+
+    for it in range(iterations):
+        H = np.zeros((6, 6))
+        g = np.zeros((6, 1))
+        chi = 0.0
+
+        R = T[:3, :3]
+        t = T[:3, 3:4]
+
+        for i, j in correspondences:
+            p = P[:, [i]]
+            q = Q[:, [j]]
+
+            r = R @ p + t - q  # (3,1)
+
+            Sigma = R @ cov_P[i] @ R.T + cov_Q[j]
+            Sigma_inv = np.linalg.inv(Sigma)
+
+            mahal = (r.T @ Sigma_inv @ r).item()
+            w = kernel(np.sqrt(mahal))
+
+            J = np.zeros((3, 6))
+            J[:, :3] = np.eye(3)
+            J[:, 3:] = -R @ skew(p.flatten())
+
+            H += w * (J.T @ Sigma_inv @ J)
+            g += w * (J.T @ Sigma_inv @ r)
+            chi += mahal
+
+        H += 1e-6 * np.eye(6)
+
+        dx = np.linalg.solve(H, -g)
         T = exp_se3(dx.flatten()) @ T
 
     R, t = T_to_Rt(T)
